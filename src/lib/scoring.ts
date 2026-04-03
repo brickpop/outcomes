@@ -1,18 +1,23 @@
 import type { Alignment, Factor, Scenario } from '../types/scenario'
 
+// At momentum=1 and t=10, the factor grows to 5x: (1 + k)^10 = 5 → k = 5^(1/10) - 1
+const MOMENTUM_SCALE = Math.pow(5, 1 / 10) - 1
+
 /**
- * Computes the decay factor for a given uncertainty over time.
- * decay(u, t) = (1 - u)^t
+ * Computes the time effect multiplier for a factor at time t.
+ * - Uncertainty causes decay: (1 - u)^t
+ * - Momentum causes growth, capped at 5x at t=10: (1 + m × MOMENTUM_SCALE)^t
+ * - These are mutually exclusive; at most one should be non-zero.
  */
-export function decay(uncertainty: number, t: number): number {
-  return Math.pow(1 - uncertainty, t)
+export function timeEffect(uncertainty: number, momentum: number, t: number): number {
+  return Math.pow(1 - uncertainty, t) * Math.pow(1 + momentum * MOMENTUM_SCALE, t)
 }
 
 /**
  * Computes the score for a single option at time t.
  *
  * Score(option, t) = Σ over all factors f:
- *     priority(f) × alignment(option, f) × decay(uncertainty(f), t)
+ *     priority(f) × alignment(option, f) × timeEffect(uncertainty(f), momentum(f), t)
  */
 export function computeOptionScore(
   optionId: string,
@@ -28,7 +33,7 @@ export function computeOptionScore(
     )
     const alignmentValue = alignment ? alignment.value : 0
 
-    score += factor.priority * alignmentValue * decay(factor.uncertainty, t)
+    score += factor.priority * alignmentValue * timeEffect(factor.uncertainty, factor.momentum, t)
   }
 
   return score

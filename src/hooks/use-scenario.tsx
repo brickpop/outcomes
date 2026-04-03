@@ -6,7 +6,6 @@ import { generateId } from '@/lib/id'
 type Action =
   | { type: 'SET_SCENARIO'; scenario: Scenario }
   | { type: 'SET_NAME'; name: string }
-  | { type: 'SET_DESCRIPTION'; description: string }
   | { type: 'ADD_OPTION'; option?: Partial<Option> }
   | { type: 'UPDATE_OPTION'; id: string; changes: Partial<Option> }
   | { type: 'REMOVE_OPTION'; id: string }
@@ -30,14 +29,10 @@ function reducer(state: Scenario, action: Action): Scenario {
     case 'SET_NAME':
       return { ...state, name: action.name, updatedAt: now }
 
-    case 'SET_DESCRIPTION':
-      return { ...state, description: action.description, updatedAt: now }
-
     case 'ADD_OPTION': {
       const option: Option = {
         id: generateId(),
         name: action.option?.name ?? `Option ${state.options.length + 1}`,
-        description: action.option?.description,
         color: action.option?.color ?? OPTION_COLORS[state.options.length % OPTION_COLORS.length],
       }
       return { ...state, options: [...state.options, option], updatedAt: now }
@@ -67,18 +62,27 @@ function reducer(state: Scenario, action: Action): Scenario {
         notes: action.factor?.notes,
         priority: action.factor?.priority ?? 0.5,
         uncertainty: action.factor?.uncertainty ?? 0.3,
+        momentum: action.factor?.momentum ?? 0,
       }
       return { ...state, factors: [...state.factors, factor], updatedAt: now }
     }
 
-    case 'UPDATE_FACTOR':
+    case 'UPDATE_FACTOR': {
+      // Mutual exclusivity: non-zero uncertainty resets momentum and vice versa
+      let changes = action.changes
+      if (changes.uncertainty !== undefined && changes.uncertainty > 0) {
+        changes = { ...changes, momentum: 0 }
+      } else if (changes.momentum !== undefined && changes.momentum > 0) {
+        changes = { ...changes, uncertainty: 0 }
+      }
       return {
         ...state,
         factors: state.factors.map(f =>
-          f.id === action.id ? { ...f, ...action.changes } : f
+          f.id === action.id ? { ...f, ...changes } : f
         ),
         updatedAt: now,
       }
+    }
 
     case 'REMOVE_FACTOR':
       return {

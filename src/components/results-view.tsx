@@ -2,7 +2,7 @@ import { useState, useMemo } from 'react'
 import { useScenario } from '@/hooks/use-scenario'
 import { Slider } from '@/components/ui/slider'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { computeAllScores, computeScoreOverTime, computeOptionScore, decay } from '@/lib/scoring'
+import { computeAllScores, computeScoreOverTime, timeEffect } from '@/lib/scoring'
 import { getAlignment } from '@/lib/scenario'
 import { ChevronDown, ChevronRight } from 'lucide-react'
 import {
@@ -154,15 +154,16 @@ export function ResultsView() {
                           <th className="pb-2 text-right font-medium">Priority</th>
                           <th className="pb-2 text-right font-medium">Alignment</th>
                           <th className="pb-2 text-right font-medium">Uncertainty</th>
-                          <th className="pb-2 text-right font-medium">Decay</th>
+                          <th className="pb-2 text-right font-medium">Momentum</th>
+                          <th className="pb-2 text-right font-medium">Effect</th>
                           <th className="pb-2 text-right font-medium">Contribution</th>
                         </tr>
                       </thead>
                       <tbody>
                         {scenario.factors.map(factor => {
                           const alignment = getAlignment(scenario.alignments, option.id, factor.id)
-                          const d = decay(factor.uncertainty, timeHorizon)
-                          const contribution = factor.priority * alignment * d
+                          const effect = timeEffect(factor.uncertainty, factor.momentum, timeHorizon)
+                          const contribution = factor.priority * alignment * effect
                           return (
                             <tr key={factor.id} className="border-t">
                               <td className="py-1.5">{factor.name}</td>
@@ -170,8 +171,9 @@ export function ResultsView() {
                               <td className="py-1.5 text-right tabular-nums">
                                 {alignment >= 0 ? '+' : ''}{alignment.toFixed(2)}
                               </td>
-                              <td className="py-1.5 text-right tabular-nums">{factor.uncertainty.toFixed(2)}</td>
-                              <td className="py-1.5 text-right tabular-nums">{d.toFixed(3)}</td>
+                              <td className="py-1.5 text-right tabular-nums">{(-factor.uncertainty).toFixed(2)}</td>
+                              <td className="py-1.5 text-right tabular-nums">{factor.momentum.toFixed(2)}</td>
+                              <td className="py-1.5 text-right tabular-nums">{effect.toFixed(3)}</td>
                               <td className="py-1.5 text-right font-medium tabular-nums">
                                 {contribution >= 0 ? '+' : ''}{contribution.toFixed(3)}
                               </td>
@@ -199,7 +201,7 @@ export function ResultsView() {
               <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
               <XAxis
                 dataKey="t"
-                label={{ value: scenario.timeUnit, position: 'insideBottom', offset: -5 }}
+                label={{ value: 'steps', position: 'insideBottom', offset: -5 }}
                 className="text-xs"
               />
               <YAxis className="text-xs" />

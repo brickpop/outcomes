@@ -59,7 +59,7 @@ export function AlignmentEditor() {
                       min={-1}
                       max={1}
                       step={0.01}
-                      centerOrigin
+                      fillOrigin="center"
                       rangeClassName={isNegative ? 'bg-red-400' : 'bg-emerald-500'}
                       thumbClassName={isNegative ? 'border-red-400/50' : 'border-emerald-500/50'}
                       onValueChange={([v]) =>

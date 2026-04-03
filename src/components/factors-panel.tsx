@@ -5,6 +5,18 @@ import { Slider } from '@/components/ui/slider'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Plus, Trash2 } from 'lucide-react'
 
+// Interpolate between neutral gray and a target color based on intensity t ∈ [0, 1]
+const NEUTRAL = [156, 163, 175] // gray-400
+const RED     = [239,  68,  68] // red-500
+const GREEN   = [ 34, 197,  94] // green-500
+
+function lerpColor(t: number, target: number[]): string {
+  const r = Math.round(NEUTRAL[0] + (target[0] - NEUTRAL[0]) * t)
+  const g = Math.round(NEUTRAL[1] + (target[1] - NEUTRAL[1]) * t)
+  const b = Math.round(NEUTRAL[2] + (target[2] - NEUTRAL[2]) * t)
+  return `rgb(${r}, ${g}, ${b})`
+}
+
 export function FactorsPanel() {
   const { scenario, dispatch } = useScenario()
 
@@ -55,7 +67,7 @@ export function FactorsPanel() {
               </Button>
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
               <div className="space-y-1">
                 <div className="flex items-center justify-between">
                   <label className="text-xs font-medium text-muted-foreground">Priority</label>
@@ -76,34 +88,45 @@ export function FactorsPanel() {
                 />
               </div>
 
-              <div className="space-y-1">
-                <div className="flex items-center justify-between">
-                  <label className="text-xs font-medium text-muted-foreground">Uncertainty</label>
-                  <span className="text-xs tabular-nums text-muted-foreground">
-                    {factor.uncertainty.toFixed(2)}
-                  </span>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-1">
+                  <div className="flex items-center justify-between">
+                    <label className="text-xs font-medium text-muted-foreground">Uncertainty</label>
+                    <span className="text-xs tabular-nums text-muted-foreground">
+                      {(-factor.uncertainty).toFixed(2)}
+                    </span>
+                  </div>
+                  <Slider
+                    value={[-factor.uncertainty]}
+                    min={-1}
+                    max={0}
+                    step={0.01}
+                    fillOrigin="max"
+                    rangeStyle={{ backgroundColor: lerpColor(factor.uncertainty, RED) }}
+                    onValueChange={([v]) =>
+                      dispatch({ type: 'UPDATE_FACTOR', id: factor.id, changes: { uncertainty: -v } })
+                    }
+                  />
                 </div>
-                <Slider
-                  value={[factor.uncertainty]}
-                  min={0}
-                  max={1}
-                  step={0.01}
-                  rangeClassName={
-                    factor.uncertainty <= 0.1 ? 'bg-emerald-500' :
-                    factor.uncertainty <= 0.35 ? 'bg-amber-500' :
-                    factor.uncertainty <= 0.6 ? 'bg-orange-500' :
-                    'bg-red-500'
-                  }
-                  thumbClassName={
-                    factor.uncertainty <= 0.1 ? 'border-emerald-500/50' :
-                    factor.uncertainty <= 0.35 ? 'border-amber-500/50' :
-                    factor.uncertainty <= 0.6 ? 'border-orange-500/50' :
-                    'border-red-500/50'
-                  }
-                  onValueChange={([v]) =>
-                    dispatch({ type: 'UPDATE_FACTOR', id: factor.id, changes: { uncertainty: v } })
-                  }
-                />
+
+                <div className="space-y-1">
+                  <div className="flex items-center justify-between">
+                    <label className="text-xs font-medium text-muted-foreground">Momentum</label>
+                    <span className="text-xs tabular-nums text-muted-foreground">
+                      {factor.momentum.toFixed(2)}
+                    </span>
+                  </div>
+                  <Slider
+                    value={[factor.momentum]}
+                    min={0}
+                    max={1}
+                    step={0.01}
+                    rangeStyle={{ backgroundColor: lerpColor(factor.momentum, GREEN) }}
+                    onValueChange={([v]) =>
+                      dispatch({ type: 'UPDATE_FACTOR', id: factor.id, changes: { momentum: v } })
+                    }
+                  />
+                </div>
               </div>
             </div>
           </div>

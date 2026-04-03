@@ -1,39 +1,53 @@
 import { describe, expect, test } from 'bun:test'
-import { decay, computeOptionScore, computeAllScores, computeScoreOverTime } from './scoring'
+import { timeEffect, computeOptionScore, computeAllScores, computeScoreOverTime } from './scoring'
 import type { Scenario, Factor, Alignment } from '../types/scenario'
 
-describe('decay', () => {
-  test('returns 1 at t=0 regardless of uncertainty', () => {
-    expect(decay(0, 0)).toBe(1)
-    expect(decay(0.5, 0)).toBe(1)
-    expect(decay(1, 0)).toBe(1)
+describe('timeEffect', () => {
+  test('returns 1 at t=0 regardless of uncertainty or momentum', () => {
+    expect(timeEffect(0, 0, 0)).toBe(1)
+    expect(timeEffect(0.5, 0, 0)).toBe(1)
+    expect(timeEffect(1, 0, 0)).toBe(1)
+    expect(timeEffect(0, 0.5, 0)).toBe(1)
   })
 
-  test('returns 1 at any t when uncertainty is 0', () => {
-    expect(decay(0, 5)).toBe(1)
-    expect(decay(0, 100)).toBe(1)
+  test('returns 1 at any t when both are 0', () => {
+    expect(timeEffect(0, 0, 5)).toBe(1)
+    expect(timeEffect(0, 0, 100)).toBe(1)
   })
 
-  test('returns 0 at any t > 0 when uncertainty is 1', () => {
-    expect(decay(1, 1)).toBe(0)
-    expect(decay(1, 10)).toBe(0)
+  test('decays to 0 at any t > 0 when uncertainty is 1', () => {
+    expect(timeEffect(1, 0, 1)).toBe(0)
+    expect(timeEffect(1, 0, 10)).toBe(0)
   })
 
-  test('decays correctly for intermediate values', () => {
-    expect(decay(0.5, 1)).toBeCloseTo(0.5)
-    expect(decay(0.5, 2)).toBeCloseTo(0.25)
-    expect(decay(0.2, 3)).toBeCloseTo(0.512)
+  test('decays correctly for intermediate uncertainty', () => {
+    expect(timeEffect(0.5, 0, 1)).toBeCloseTo(0.5)
+    expect(timeEffect(0.5, 0, 2)).toBeCloseTo(0.25)
+    expect(timeEffect(0.2, 0, 3)).toBeCloseTo(0.512)
   })
 
   test('higher uncertainty decays faster', () => {
-    expect(decay(0.8, 3)).toBeLessThan(decay(0.2, 3))
+    expect(timeEffect(0.8, 0, 3)).toBeLessThan(timeEffect(0.2, 0, 3))
+  })
+
+  test('momentum grows the score over time', () => {
+    expect(timeEffect(0, 0.5, 5)).toBeGreaterThan(1)
+    expect(timeEffect(0, 1, 10)).toBeGreaterThan(1)
+  })
+
+  test('momentum=1 at t=10 grows to 5x', () => {
+    expect(timeEffect(0, 1, 10)).toBeCloseTo(5)
+  })
+
+  test('higher momentum grows faster', () => {
+    expect(timeEffect(0, 0.8, 5)).toBeGreaterThan(timeEffect(0, 0.4, 5))
   })
 })
 
 describe('computeOptionScore', () => {
   const factors: Factor[] = [
-    { id: 'f1', name: 'Weather', priority: 1, uncertainty: 0 },
-    { id: 'f2', name: 'Jobs', priority: 0.5, uncertainty: 0.5 },
+    { id: 'f1', name: 'Weather', priority: 1, uncertainty: 0, momentum: 0 },
+    { id: 'f2', name: 'Jobs', priority: 0.5, uncertainty: 0.5, momentum: 0 },
   ]
 
   const alignments: Alignment[] = [
@@ -51,6 +65,15 @@ describe('computeOptionScore', () => {
     const score = computeOptionScore('o1', factors, alignments, 1)
     // 1 * 0.8 * 1 + 0.5 * -0.4 * 0.5 = 0.8 - 0.1 = 0.7
     expect(score).toBeCloseTo(0.7)
+  })
+
+  test('momentum factors grow over time', () => {
+    const growingFactors: Factor[] = [
+      { id: 'f1', name: 'Weather', priority: 1, uncertainty: 0, momentum: 0.5 },
+    ]
+    const score0 = computeOptionScore('o1', growingFactors, [{ optionId: 'o1', factorId: 'f1', value: 0.5 }], 0)
+    const score5 = computeOptionScore('o1', growingFactors, [{ optionId: 'o1', factorId: 'f1', value: 0.5 }], 5)
+    expect(score5).toBeGreaterThan(score0)
   })
 
   test('returns 0 for missing alignments', () => {
@@ -74,8 +97,8 @@ function makeScenario(overrides?: Partial<Scenario>): Scenario {
       { id: 'b', name: 'City B', color: '#0f0' },
     ],
     factors: [
-      { id: 'f1', name: 'Weather', priority: 1, uncertainty: 0 },
-      { id: 'f2', name: 'Jobs', priority: 0.8, uncertainty: 0.5 },
+      { id: 'f1', name: 'Weather', priority: 1, uncertainty: 0, momentum: 0 },
+      { id: 'f2', name: 'Jobs', priority: 0.8, uncertainty: 0.5, momentum: 0 },
     ],
     alignments: [
       { optionId: 'a', factorId: 'f1', value: 0.9 },
@@ -111,6 +134,20 @@ describe('computeAllScores', () => {
     // Jobs factor (high uncertainty) decays away
     // City A benefits more since Weather (stable) is its strength
     expect(scoreA.score).toBeGreaterThan(scoreB.score)
+  })
+
+  test('momentum amplifies scores over time', () => {
+    const scenario = makeScenario({
+      factors: [
+        { id: 'f1', name: 'Weather', priority: 1, uncertainty: 0, momentum: 1 },
+        { id: 'f2', name: 'Jobs', priority: 0.8, uncertainty: 0, momentum: 0 },
+      ],
+    })
+    const scores0 = computeAllScores(scenario, 0)
+    const scores10 = computeAllScores(scenario, 10)
+    const totalScore0 = scores0.reduce((s, e) => s + Math.abs(e.score), 0)
+    const totalScore10 = scores10.reduce((s, e) => s + Math.abs(e.score), 0)
+    expect(totalScore10).toBeGreaterThan(totalScore0)
   })
 })
 

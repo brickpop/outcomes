@@ -10,7 +10,6 @@ export function createEmptyScenario(): Scenario {
   return {
     id: generateId(),
     name: 'New Scenario',
-    description: undefined,
     createdAt: now,
     updatedAt: now,
     options: [],
