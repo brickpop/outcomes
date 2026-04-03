@@ -1,7 +1,8 @@
-import { createContext, useContext, useReducer, type ReactNode } from 'react'
+import { createContext, useContext, useEffect, useReducer, type ReactNode } from 'react'
 import type { Scenario, Option, Factor } from '@/types/scenario'
-import { createEmptyScenario, setAlignment } from '@/lib/scenario'
+import { setAlignment } from '@/lib/scenario'
 import { generateId } from '@/lib/id'
+import { loadScenario, saveScenario } from '@/lib/storage'
 
 type Action =
   | { type: 'SET_SCENARIO'; scenario: Scenario }
@@ -112,7 +113,12 @@ interface ScenarioContextValue {
 const ScenarioContext = createContext<ScenarioContextValue | null>(null)
 
 export function ScenarioProvider({ children }: { children: ReactNode }) {
-  const [scenario, dispatch] = useReducer(reducer, null, createEmptyScenario)
+  const [scenario, dispatch] = useReducer(reducer, null, loadScenario)
+
+  useEffect(() => {
+    const timer = setTimeout(() => saveScenario(scenario), 300)
+    return () => clearTimeout(timer)
+  }, [scenario])
 
   return (
     <ScenarioContext.Provider value={{ scenario, dispatch }}>

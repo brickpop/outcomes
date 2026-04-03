@@ -1,10 +1,10 @@
-# Outcomer
+# Outcomes
 
 A weighted multi-criteria decision analysis tool that helps break complex decisions into smaller, assessable pieces.
 
 ## Concept
 
-When facing complex decisions with many variables, Outcomer helps by decomposing the problem into:
+When facing complex decisions with many variables, Outcomes helps by decomposing the problem into:
 
 - **Options** -- the choices you're deciding between
 - **Factors** -- the criteria you care about, each with a **priority** (how much you care) and **uncertainty** (how likely the score will change over time)

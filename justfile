@@ -1,4 +1,4 @@
-# Outcomer - Decision Analysis Tool
+# Outcomes - Decision Analysis Tool
 
 help:
     just --list --unsorted
