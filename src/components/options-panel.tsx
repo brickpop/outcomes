@@ -3,7 +3,7 @@ import { useScenario } from '@/hooks/use-scenario'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { ChevronDown, ChevronRight, Plus, Trash2 } from 'lucide-react'
+import { ChevronDown, ChevronRight, ChevronUp, Plus, Trash2 } from 'lucide-react'
 
 export function OptionsPanel() {
   const { scenario, dispatch } = useScenario()
@@ -44,7 +44,7 @@ export function OptionsPanel() {
               No options yet. Add the choices you're deciding between.
             </p>
           )}
-          {scenario.options.map(option => (
+          {scenario.options.map((option, index) => (
             <div key={option.id} className="flex items-center gap-2 rounded-lg border p-2">
               <input
                 type="color"
@@ -62,6 +62,24 @@ export function OptionsPanel() {
                 placeholder="Option name"
                 className="h-7 flex-1"
               />
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-7 w-7 text-muted-foreground hover:text-foreground disabled:opacity-25"
+                disabled={index === 0}
+                onClick={() => dispatch({ type: 'MOVE_OPTION', id: option.id, direction: 'up' })}
+              >
+                <ChevronUp className="h-3.5 w-3.5" />
+              </Button>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-7 w-7 text-muted-foreground hover:text-foreground disabled:opacity-25"
+                disabled={index === scenario.options.length - 1}
+                onClick={() => dispatch({ type: 'MOVE_OPTION', id: option.id, direction: 'down' })}
+              >
+                <ChevronDown className="h-3.5 w-3.5" />
+              </Button>
               <Button
                 variant="ghost"
                 size="icon"

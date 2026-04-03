@@ -48,11 +48,30 @@ export function setAlignment(
 
   if (index >= 0) {
     const updated = [...alignments]
-    updated[index] = { optionId, factorId, value }
+    updated[index] = { ...alignments[index], value }
     return updated
   }
 
-  return [...alignments, { optionId, factorId, value }]
+  return [...alignments, { optionId, factorId, value, drift: 0 }]
+}
+
+export function setDrift(
+  alignments: Alignment[],
+  optionId: string,
+  factorId: string,
+  drift: number
+): Alignment[] {
+  const index = alignments.findIndex(
+    (a) => a.optionId === optionId && a.factorId === factorId
+  )
+
+  if (index >= 0) {
+    const updated = [...alignments]
+    updated[index] = { ...alignments[index], drift }
+    return updated
+  }
+
+  return [...alignments, { optionId, factorId, value: 0, drift }]
 }
 
 /**

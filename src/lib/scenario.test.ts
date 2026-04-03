@@ -52,7 +52,7 @@ describe('setAlignment', () => {
   test('adds a new alignment', () => {
     const result = setAlignment([], 'o1', 'f1', 0.5)
     expect(result).toHaveLength(1)
-    expect(result[0]).toEqual({ optionId: 'o1', factorId: 'f1', value: 0.5 })
+    expect(result[0]).toEqual({ optionId: 'o1', factorId: 'f1', value: 0.5, drift: 0 })
   })
 
   test('updates an existing alignment', () => {

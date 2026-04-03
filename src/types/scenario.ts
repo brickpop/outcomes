@@ -18,14 +18,12 @@ export interface Option {
 export interface Factor {
   id: string
   name: string
-  notes?: string
-  priority: number     // 0 to 1
-  uncertainty: number  // 0 to 1 — causes score to decay over time; mutually exclusive with momentum
-  momentum: number     // 0 to 1 — causes score to grow over time (5x max at t=10); mutually exclusive with uncertainty
+  priority: number  // 0 to 1
 }
 
 export interface Alignment {
   optionId: string
   factorId: string
-  value: number        // -1 to 1
+  value: number  // -1 to 1 — how well this option delivers on this factor
+  drift: number  // -1 to 1 — negative = uncertainty (decays), positive = momentum (grows), 0 = stable
 }

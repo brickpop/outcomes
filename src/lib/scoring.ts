@@ -1,23 +1,24 @@
 import type { Alignment, Factor, Scenario } from '../types/scenario'
 
-// At momentum=1 and t=10, the factor grows to 5x: (1 + k)^10 = 5 → k = 5^(1/10) - 1
+// At drift=1 and t=10, the alignment grows to 5x: (1 + k)^10 = 5 → k = 5^(1/10) - 1
 const MOMENTUM_SCALE = Math.pow(5, 1 / 10) - 1
 
 /**
- * Computes the time effect multiplier for a factor at time t.
- * - Uncertainty causes decay: (1 - u)^t
- * - Momentum causes growth, capped at 5x at t=10: (1 + m × MOMENTUM_SCALE)^t
- * - These are mutually exclusive; at most one should be non-zero.
+ * Computes the time effect multiplier for an alignment's drift at time t.
+ * - drift < 0: uncertainty — alignment decays: (1 + drift)^t = (1 - |drift|)^t
+ * - drift = 0: stable — no change
+ * - drift > 0: momentum — alignment grows, capped at 5x at t=10: (1 + drift × MOMENTUM_SCALE)^t
  */
-export function timeEffect(uncertainty: number, momentum: number, t: number): number {
-  return Math.pow(1 - uncertainty, t) * Math.pow(1 + momentum * MOMENTUM_SCALE, t)
+export function timeEffect(drift: number, t: number): number {
+  if (drift <= 0) return Math.pow(1 + drift, t)
+  return Math.pow(1 + drift * MOMENTUM_SCALE, t)
 }
 
 /**
  * Computes the score for a single option at time t.
  *
  * Score(option, t) = Σ over all factors f:
- *     priority(f) × alignment(option, f) × timeEffect(uncertainty(f), momentum(f), t)
+ *     priority(f) × alignment(option, f).value × timeEffect(alignment(option, f).drift, t)
  */
 export function computeOptionScore(
   optionId: string,
@@ -31,9 +32,7 @@ export function computeOptionScore(
     const alignment = alignments.find(
       (a) => a.optionId === optionId && a.factorId === factor.id
     )
-    const alignmentValue = alignment ? alignment.value : 0
-
-    score += factor.priority * alignmentValue * timeEffect(factor.uncertainty, factor.momentum, t)
+    score += factor.priority * (alignment?.value ?? 0) * timeEffect(alignment?.drift ?? 0, t)
   }
 
   return score

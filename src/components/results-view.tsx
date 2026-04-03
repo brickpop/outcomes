@@ -3,7 +3,6 @@ import { useScenario } from '@/hooks/use-scenario'
 import { Slider } from '@/components/ui/slider'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { computeAllScores, computeScoreOverTime, timeEffect } from '@/lib/scoring'
-import { getAlignment } from '@/lib/scenario'
 import { ChevronDown, ChevronRight } from 'lucide-react'
 import {
   LineChart,
@@ -16,10 +15,58 @@ import {
   Legend,
 } from 'recharts'
 
+function cellBg(value: number, maxAbs: number): string {
+  if (maxAbs === 0 || value === 0) return 'transparent'
+  const intensity = Math.abs(value) / maxAbs
+  return value > 0
+    ? `rgba(34, 197, 94, ${(intensity * 0.22).toFixed(3)})`
+    : `rgba(239, 68, 68, ${(intensity * 0.22).toFixed(3)})`
+}
+
+const tooltipStyle = {
+  backgroundColor: 'var(--color-card)',
+  border: '1px solid var(--color-border)',
+  borderRadius: '0.375rem',
+  fontSize: '0.7rem',
+  padding: '0.25rem 0.5rem',
+  lineHeight: '1.6',
+}
+
+function ChartTooltip(props: Record<string, unknown>) {
+  const { active, payload, label } = props as {
+    active?: boolean
+    payload?: { dataKey: string; name: string; value: number; color: string }[]
+    label?: number
+  }
+  if (!active || !payload?.length) return null
+  const sorted = [...payload].sort((a, b) => b.value - a.value)
+  return (
+    <div style={tooltipStyle}>
+      <div style={{ color: 'var(--color-muted-foreground)', marginBottom: '0.125rem' }}>
+        t = {label}
+      </div>
+      {sorted.map(entry => (
+        <div key={entry.dataKey} style={{ color: entry.color }}>
+          {entry.name}: {entry.value >= 0 ? '+' : ''}{entry.value.toFixed(3)}
+        </div>
+      ))}
+    </div>
+  )
+}
+
 export function ResultsView() {
   const { scenario } = useScenario()
   const [timeHorizon, setTimeHorizon] = useState(0)
   const [expandedOption, setExpandedOption] = useState<string | null>(null)
+  const [hiddenOptions, setHiddenOptions] = useState<Set<string>>(new Set())
+
+  function toggleOption(dataKey: string) {
+    setHiddenOptions(prev => {
+      const next = new Set(prev)
+      next.has(dataKey) ? next.delete(dataKey) : next.add(dataKey)
+      return next
+    })
+  }
 
   const scores = useMemo(
     () => computeAllScores(scenario, timeHorizon),
@@ -145,45 +192,56 @@ export function ResultsView() {
                   )}
                 </button>
 
-                {isExpanded && (
-                  <div className="border-t px-4 py-3">
-                    <table className="w-full text-sm">
-                      <thead>
-                        <tr className="text-muted-foreground">
-                          <th className="pb-2 text-left font-medium">Factor</th>
-                          <th className="pb-2 text-right font-medium">Priority</th>
-                          <th className="pb-2 text-right font-medium">Alignment</th>
-                          <th className="pb-2 text-right font-medium">Uncertainty</th>
-                          <th className="pb-2 text-right font-medium">Momentum</th>
-                          <th className="pb-2 text-right font-medium">Effect</th>
-                          <th className="pb-2 text-right font-medium">Contribution</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {scenario.factors.map(factor => {
-                          const alignment = getAlignment(scenario.alignments, option.id, factor.id)
-                          const effect = timeEffect(factor.uncertainty, factor.momentum, timeHorizon)
-                          const contribution = factor.priority * alignment * effect
-                          return (
+                {isExpanded && (() => {
+                  const rows = scenario.factors.map(factor => {
+                    const alignment = scenario.alignments.find(
+                      a => a.optionId === option.id && a.factorId === factor.id
+                    )
+                    const value = alignment?.value ?? 0
+                    const drift = alignment?.drift ?? 0
+                    const effect = timeEffect(drift, timeHorizon)
+                    const contribution = factor.priority * value * effect
+                    return { factor, value, drift, effect, contribution }
+                  })
+                  const maxAbsAlignment     = Math.max(...rows.map(r => Math.abs(r.value)), 0)
+                  const maxAbsDrift         = Math.max(...rows.map(r => Math.abs(r.drift)), 0)
+                  const maxAbsContribution  = Math.max(...rows.map(r => Math.abs(r.contribution)), 0)
+
+                  return (
+                    <div className="border-t px-4 py-3">
+                      <table className="w-full text-sm">
+                        <thead>
+                          <tr className="text-muted-foreground">
+                            <th className="pb-2 text-left font-medium">Factor</th>
+                            <th className="pb-2 text-right font-medium">Priority</th>
+                            <th className="pb-2 text-right font-medium">Alignment</th>
+                            <th className="pb-2 text-right font-medium">Drift</th>
+                            <th className="pb-2 text-right font-medium">Effect</th>
+                            <th className="pb-2 text-right font-medium">Contribution</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {rows.map(({ factor, value, drift, effect, contribution }) => (
                             <tr key={factor.id} className="border-t">
                               <td className="py-1.5">{factor.name}</td>
                               <td className="py-1.5 text-right tabular-nums">{factor.priority.toFixed(2)}</td>
-                              <td className="py-1.5 text-right tabular-nums">
-                                {alignment >= 0 ? '+' : ''}{alignment.toFixed(2)}
+                              <td className="py-1.5 text-right tabular-nums" style={{ backgroundColor: cellBg(value, maxAbsAlignment) }}>
+                                {value >= 0 ? '+' : ''}{value.toFixed(2)}
                               </td>
-                              <td className="py-1.5 text-right tabular-nums">{(-factor.uncertainty).toFixed(2)}</td>
-                              <td className="py-1.5 text-right tabular-nums">{factor.momentum.toFixed(2)}</td>
+                              <td className="py-1.5 text-right tabular-nums" style={{ backgroundColor: cellBg(drift, maxAbsDrift) }}>
+                                {drift >= 0 ? '+' : ''}{drift.toFixed(2)}
+                              </td>
                               <td className="py-1.5 text-right tabular-nums">{effect.toFixed(3)}</td>
-                              <td className="py-1.5 text-right font-medium tabular-nums">
+                              <td className="py-1.5 text-right font-medium tabular-nums" style={{ backgroundColor: cellBg(contribution, maxAbsContribution) }}>
                                 {contribution >= 0 ? '+' : ''}{contribution.toFixed(3)}
                               </td>
                             </tr>
-                          )
-                        })}
-                      </tbody>
-                    </table>
-                  </div>
-                )}
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  )
+                })()}
               </div>
             )
           })}
@@ -206,13 +264,20 @@ export function ResultsView() {
               />
               <YAxis className="text-xs" />
               <Tooltip
-                contentStyle={{
-                  backgroundColor: 'hsl(var(--card))',
-                  border: '1px solid hsl(var(--border))',
-                  borderRadius: '0.5rem',
-                }}
+                isAnimationActive={false}
+                content={ChartTooltip}
+                wrapperStyle={{ outline: 'none' }}
               />
-              <Legend />
+              <Legend
+                verticalAlign="top"
+                wrapperStyle={{ fontSize: '0.75rem', paddingBottom: '0.5rem', cursor: 'pointer' }}
+                onClick={entry => toggleOption(String(entry.dataKey))}
+                formatter={(value, entry) => (
+                  <span style={{ opacity: hiddenOptions.has(String(entry.dataKey)) ? 0.35 : 1 }}>
+                    {value}
+                  </span>
+                )}
+              />
               {scenario.options.map(option => (
                 <Line
                   key={option.id}
@@ -222,6 +287,8 @@ export function ResultsView() {
                   stroke={option.color}
                   strokeWidth={2}
                   dot={false}
+                  isAnimationActive={false}
+                  hide={hiddenOptions.has(option.id)}
                 />
               ))}
             </LineChart>

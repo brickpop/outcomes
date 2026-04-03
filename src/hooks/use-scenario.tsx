@@ -1,6 +1,6 @@
 import { createContext, useContext, useEffect, useReducer, type ReactNode } from 'react'
 import type { Scenario, Option, Factor } from '@/types/scenario'
-import { setAlignment } from '@/lib/scenario'
+import { setAlignment, setDrift } from '@/lib/scenario'
 import { generateId } from '@/lib/id'
 import { loadScenario, saveScenario } from '@/lib/storage'
 
@@ -10,10 +10,14 @@ type Action =
   | { type: 'ADD_OPTION'; option?: Partial<Option> }
   | { type: 'UPDATE_OPTION'; id: string; changes: Partial<Option> }
   | { type: 'REMOVE_OPTION'; id: string }
+  | { type: 'MOVE_OPTION'; id: string; direction: 'up' | 'down' }
   | { type: 'ADD_FACTOR'; factor?: Partial<Factor> }
   | { type: 'UPDATE_FACTOR'; id: string; changes: Partial<Factor> }
   | { type: 'REMOVE_FACTOR'; id: string }
+  | { type: 'MOVE_FACTOR'; id: string; direction: 'up' | 'down' }
+  | { type: 'SORT_FACTORS' }
   | { type: 'SET_ALIGNMENT'; optionId: string; factorId: string; value: number }
+  | { type: 'SET_DRIFT'; optionId: string; factorId: string; drift: number }
 
 const OPTION_COLORS = [
   '#3b82f6', '#ef4444', '#10b981', '#f59e0b', '#8b5cf6',
@@ -56,34 +60,32 @@ function reducer(state: Scenario, action: Action): Scenario {
         updatedAt: now,
       }
 
+    case 'MOVE_OPTION': {
+      const idx = state.options.findIndex(o => o.id === action.id)
+      const target = action.direction === 'up' ? idx - 1 : idx + 1
+      if (target < 0 || target >= state.options.length) return state
+      const options = [...state.options]
+      ;[options[idx], options[target]] = [options[target], options[idx]]
+      return { ...state, options, updatedAt: now }
+    }
+
     case 'ADD_FACTOR': {
       const factor: Factor = {
         id: generateId(),
         name: action.factor?.name ?? `Factor ${state.factors.length + 1}`,
-        notes: action.factor?.notes,
         priority: action.factor?.priority ?? 0.5,
-        uncertainty: action.factor?.uncertainty ?? 0.3,
-        momentum: action.factor?.momentum ?? 0,
       }
       return { ...state, factors: [...state.factors, factor], updatedAt: now }
     }
 
-    case 'UPDATE_FACTOR': {
-      // Mutual exclusivity: non-zero uncertainty resets momentum and vice versa
-      let changes = action.changes
-      if (changes.uncertainty !== undefined && changes.uncertainty > 0) {
-        changes = { ...changes, momentum: 0 }
-      } else if (changes.momentum !== undefined && changes.momentum > 0) {
-        changes = { ...changes, uncertainty: 0 }
-      }
+    case 'UPDATE_FACTOR':
       return {
         ...state,
         factors: state.factors.map(f =>
-          f.id === action.id ? { ...f, ...changes } : f
+          f.id === action.id ? { ...f, ...action.changes } : f
         ),
         updatedAt: now,
       }
-    }
 
     case 'REMOVE_FACTOR':
       return {
@@ -93,10 +95,33 @@ function reducer(state: Scenario, action: Action): Scenario {
         updatedAt: now,
       }
 
+    case 'MOVE_FACTOR': {
+      const idx = state.factors.findIndex(f => f.id === action.id)
+      const target = action.direction === 'up' ? idx - 1 : idx + 1
+      if (target < 0 || target >= state.factors.length) return state
+      const factors = [...state.factors]
+      ;[factors[idx], factors[target]] = [factors[target], factors[idx]]
+      return { ...state, factors, updatedAt: now }
+    }
+
+    case 'SORT_FACTORS':
+      return {
+        ...state,
+        factors: [...state.factors].sort((a, b) => b.priority - a.priority),
+        updatedAt: now,
+      }
+
     case 'SET_ALIGNMENT':
       return {
         ...state,
         alignments: setAlignment(state.alignments, action.optionId, action.factorId, action.value),
+        updatedAt: now,
+      }
+
+    case 'SET_DRIFT':
+      return {
+        ...state,
+        alignments: setDrift(state.alignments, action.optionId, action.factorId, action.drift),
         updatedAt: now,
       }
 
