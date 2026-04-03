@@ -48,15 +48,15 @@ export function AlignmentEditor() {
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
-        {scenario.options.map(option => (
-          <div key={option.id} className="rounded-lg border">
+        {scenario.factors.map(factor => (
+          <div key={factor.id} className="rounded-lg border">
             <div className="flex items-center gap-2 border-b bg-muted/30 px-3 py-2">
-              <div className="h-3 w-3 rounded-full" style={{ backgroundColor: option.color }} />
-              <span className="text-sm font-medium">{option.name}</span>
+              <span className="text-sm font-medium">{factor.name}</span>
+              <span className="text-xs text-muted-foreground">priority {factor.priority.toFixed(2)}</span>
             </div>
 
             <div className="space-y-2 px-3 py-3">
-              {scenario.factors.map(factor => {
+              {scenario.options.map(option => {
                 const alignment = scenario.alignments.find(
                   a => a.optionId === option.id && a.factorId === factor.id
                 )
@@ -70,12 +70,13 @@ export function AlignmentEditor() {
                     : lerpColor(drift, GREEN)
 
                 return (
-                  <div key={factor.id} className="space-y-0.5">
+                  <div key={option.id} className="space-y-0.5">
                     {/* Title row — same columns as slider row so labels align */}
                     <div className="flex items-center gap-3">
-                      <span className="flex-1 min-w-0 truncate text-xs font-medium text-muted-foreground">
-                        {factor.name}
-                      </span>
+                      <div className="flex items-center gap-1.5 flex-1 min-w-0">
+                        <div className="h-2.5 w-2.5 rounded-full shrink-0" style={{ backgroundColor: option.color }} />
+                        <span className="truncate text-xs font-medium text-muted-foreground">{option.name}</span>
+                      </div>
                       <span className="w-10 shrink-0" />
                       <span className="w-36 shrink-0 text-xs text-muted-foreground">
                         {driftLabel(drift)}
