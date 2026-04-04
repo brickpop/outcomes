@@ -14,15 +14,15 @@ describe('timeEffect', () => {
     expect(timeEffect(0, 100)).toBe(1)
   })
 
-  test('drift=-1 fully decays at t>0', () => {
-    expect(timeEffect(-1, 1)).toBe(0)
-    expect(timeEffect(-1, 10)).toBe(0)
+  test('drift=-1 loses 50% per step', () => {
+    expect(timeEffect(-1, 1)).toBeCloseTo(0.5)
+    expect(timeEffect(-1, 10)).toBeCloseTo(Math.pow(0.5, 10))
   })
 
   test('negative drift decays correctly', () => {
-    expect(timeEffect(-0.5, 1)).toBeCloseTo(0.5)
-    expect(timeEffect(-0.5, 2)).toBeCloseTo(0.25)
-    expect(timeEffect(-0.2, 3)).toBeCloseTo(0.512)
+    expect(timeEffect(-0.5, 1)).toBeCloseTo(0.75)   // (1 - 0.5*0.5)^1
+    expect(timeEffect(-0.5, 2)).toBeCloseTo(0.5625) // 0.75^2
+    expect(timeEffect(-0.2, 3)).toBeCloseTo(0.729)  // (1 - 0.2*0.5)^3 = 0.9^3
   })
 
   test('more negative drift decays faster', () => {
@@ -60,10 +60,21 @@ describe('computeOptionScore', () => {
     expect(score).toBeCloseTo(0.6)
   })
 
-  test('negative drift decays alignment contribution over time', () => {
+  test('uncertainty decays positive alignment contributions over time', () => {
+    const positiveAlignments: Alignment[] = [
+      { optionId: 'o1', factorId: 'f1', value: 0.8, drift: 0 },
+      { optionId: 'o1', factorId: 'f2', value: 0.4, drift: -0.5 },
+    ]
+    const score = computeOptionScore('o1', factors, positiveAlignments, 1)
+    // 1 * 0.8 * 1 + 0.5 * 0.4 * 0.75 = 0.8 + 0.15 = 0.95
+    expect(score).toBeCloseTo(0.95)
+  })
+
+  test('uncertainty does not decay negative alignment contributions', () => {
     const score = computeOptionScore('o1', factors, alignments, 1)
-    // 1 * 0.8 * 1 + 0.5 * -0.4 * 0.5 = 0.8 - 0.1 = 0.7
-    expect(score).toBeCloseTo(0.7)
+    // f2: value=-0.4, drift=-0.5 → effect=1 (no decay for negative value)
+    // 1 * 0.8 * 1 + 0.5 * -0.4 * 1 = 0.8 - 0.2 = 0.6 (same as t=0)
+    expect(score).toBeCloseTo(0.6)
   })
 
   test('positive drift grows alignment contribution over time', () => {

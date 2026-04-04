@@ -199,7 +199,7 @@ export function ResultsView() {
                     )
                     const value = alignment?.value ?? 0
                     const drift = alignment?.drift ?? 0
-                    const effect = timeEffect(drift, timeHorizon)
+                    const effect = timeEffect(drift, timeHorizon, value)
                     const contribution = factor.priority * value * effect
                     return { factor, value, drift, effect, contribution }
                   })

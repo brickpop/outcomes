@@ -2,16 +2,21 @@ import type { Alignment, Factor, Scenario } from '../types/scenario'
 
 // At drift=1 and t=10, the alignment grows to 5x: (1 + k)^10 = 5 → k = 5^(1/10) - 1
 const MOMENTUM_SCALE = Math.pow(5, 1 / 10) - 1
+// At drift=-1 and t=1, the alignment loses at most 50%: (1 - 0.5) = 0.5
+const UNCERTAINTY_SCALE = 0.5
 
 /**
  * Computes the time effect multiplier for an alignment's drift at time t.
- * - drift < 0: uncertainty — alignment decays: (1 + drift)^t = (1 - |drift|)^t
+ * - drift < 0: uncertainty — positive alignments decay by up to 50%/step; negative alignments unaffected
  * - drift = 0: stable — no change
- * - drift > 0: momentum — alignment grows, capped at 5x at t=10: (1 + drift × MOMENTUM_SCALE)^t
+ * - drift > 0: momentum — alignment grows, capped at 5x at t=10
+ *
+ * @param value The alignment value, used to gate uncertainty (only decays positive values)
  */
-export function timeEffect(drift: number, t: number): number {
-  if (drift <= 0) return Math.pow(1 + drift, t)
-  return Math.pow(1 + drift * MOMENTUM_SCALE, t)
+export function timeEffect(drift: number, t: number, value = 1): number {
+  if (drift < 0) return value > 0 ? Math.pow(1 + drift * UNCERTAINTY_SCALE, t) : 1
+  if (drift > 0) return Math.pow(1 + drift * MOMENTUM_SCALE, t)
+  return 1
 }
 
 /**
@@ -32,7 +37,8 @@ export function computeOptionScore(
     const alignment = alignments.find(
       (a) => a.optionId === optionId && a.factorId === factor.id
     )
-    score += factor.priority * (alignment?.value ?? 0) * timeEffect(alignment?.drift ?? 0, t)
+    const value = alignment?.value ?? 0
+    score += factor.priority * value * timeEffect(alignment?.drift ?? 0, t, value)
   }
 
   return score
